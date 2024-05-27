@@ -1,0 +1,86 @@
+{
+	"hash": "d41d8cd98f00b204e9800998ecf8427e",
+	"updated": "2024-05-27T16:20:24.9805835-04:00",
+	"installedModules": {
+		"github.com/andre-djsystem/hashlib4pascal": {
+			"name": "hashlib4pascal",
+			"version": "1.0.0",
+			"hash": "8528036224699ab509c7d8f31d691ffb",
+			"artifacts": {},
+			"failed": false,
+			"changed": false
+		},
+		"github.com/bittencourtthulio/horse-etag": {
+			"name": "horse-etag",
+			"version": "1.0.4",
+			"hash": "fcd20ae56ea7907e870b88f4594e64ff",
+			"artifacts": {},
+			"failed": false,
+			"changed": false
+		},
+		"github.com/bittencourtthulio/horse-paginate": {
+			"name": "horse-paginate",
+			"version": "1.0.5",
+			"hash": "a97e84bd40cc4bf1000901047003e486",
+			"artifacts": {},
+			"failed": false,
+			"changed": false
+		},
+		"github.com/hashload/handle-exception": {
+			"name": "handle-exception",
+			"version": "0.1.9",
+			"hash": "b7878eb4d418c67420daf8cc2e7f9dda",
+			"artifacts": {},
+			"failed": false,
+			"changed": false
+		},
+		"github.com/hashload/horse": {
+			"name": "horse",
+			"version": "3.1.6",
+			"hash": "7fdacf6b762af6406e17d06e1c5fb0a1",
+			"artifacts": {},
+			"failed": false,
+			"changed": false
+		},
+		"github.com/hashload/horse-basic-auth": {
+			"name": "horse-basic-auth",
+			"version": "1.2.3",
+			"hash": "525c71503c467b1db394d33d04bbc966",
+			"artifacts": {},
+			"failed": false,
+			"changed": false
+		},
+		"github.com/hashload/horse-jwt": {
+			"name": "horse-jwt",
+			"version": "2.0.14",
+			"hash": "d7433d10c0fbc71649ee260ef70b8928",
+			"artifacts": {},
+			"failed": false,
+			"changed": false
+		},
+		"github.com/hashload/horse-octet-stream": {
+			"name": "horse-octet-stream",
+			"version": "1.9.11",
+			"hash": "b12c994839528b3499a2eecea67a5884",
+			"artifacts": {},
+			"failed": false,
+			"changed": false
+		},
+		"github.com/hashload/jhonson": {
+			"name": "jhonson",
+			"version": "1.1.8",
+			"hash": "62d5763101381ad8aeec10773544b1dc",
+			"artifacts": {},
+			"failed": false,
+			"changed": false
+		},
+		"github.com/paolo-rossi/delphi-jose-jwt": {
+			"name": "delphi-jose-jwt",
+			"version": "v3.3.1",
+			"hash": "30168430005de681e90bef999de6804a",
+			"artifacts": {},
+			"failed": false,
+			"changed": false
+		}
+	}
+}
