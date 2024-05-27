@@ -3,10 +3,7 @@ unit Custom.Entity.Core.Model;
 interface
 
 uses
-  System.Classes, Custom.Entity.Core.Enum,
-  {$IFDEF SWAGGER}
-  GBSwagger.Model.Attributes,
-  {$ENDIF}
+  System.Classes, Custom.Entity.Core.Enum, Custom.Entity.Core.Attributes,
   System.Rtti, System.SysUtils, Custom.Entity.Core.Types;
 
 type
