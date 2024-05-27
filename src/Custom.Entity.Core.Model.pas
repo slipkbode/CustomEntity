@@ -20,9 +20,9 @@ type
     procedure SetPrimaryKey(const AIdKey: Int64);
 
   public
-    [SwagIgnore]
+    [Ignore]
     property Status: TEntityCoreModelStatus read FStatus write FStatus;
-    [SwagIgnore]
+    [Ignore]
     property ProcedureIdKey: TProc<Int64> read FProcedureIdKey write FProcedureIdKey;
 
     function Clone: TEntityCoreModel;

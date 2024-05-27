@@ -19,8 +19,6 @@ type
   TEntityCoreService<T: TEntityCoreController; I: IEntityCoreController> = class(TEntityCoreService, IEntityCoreService)
   strict private
     FClass: TClass;
-
-    function GetEndpointDescription(const AProperty: TRttiProperty): String;
   private
     function GetCallBack: THorseCallback; overload;
     function PutCallBack: THorseCallback; overload;
@@ -28,9 +26,12 @@ type
     function DeleteCallBack: THorseCallback; overload;
     function GetRouteDelete: String;
     function GetRoutePut: String;
+    {$IFDEF SWAGGER}
     function GetEndpointNameDelete: String;
     function GetEndpointNamePut: String;
+     function GetEndpointDescription(const AProperty: TRttiProperty): String;
     function GetParameter(const AMethodType: TMethodType): String;
+    {$ENDIF}
 
     procedure Publish(const AProperty: TRttiProperty);
 
@@ -156,18 +157,6 @@ begin
   Result := GetController(nil);
 end;
 
-function TEntityCoreService<T, I>.GetEndpointDescription(const AProperty: TRttiProperty): String;
-begin
-  Result := String.Empty;
-
-  var LEndpointDiscription := AProperty.GetAttribute<EndpointDescription>;
-
-  if LEndpointDiscription <> nil then
-  begin
-    Result := LEndpointDiscription.Value.AsString;
-  end;
-end;
-
 function TEntityCoreService<T, I>.GetEndpointName: String;
 begin
   Result := Self.ClassName.Remove(0, 1);
@@ -175,26 +164,6 @@ begin
   if Result.Substring(Result.Length - 7).ToUpper.Equals('SERVICE') then
   begin
     Result := Result.Substring(0, Result.Length - 7);
-  end;
-end;
-
-function TEntityCoreService<T, I>.GetEndpointNameDelete: String;
-begin
-   Result := GetEndpointNameWithKey;
-
-  if TEntityCoreMapper.GetAttribute<NoShowPrimaryKeyDelete>(Self.ClassType) <> nil then
-  begin
-    Result := GetEndpointName;
-  end;
-end;
-
-function TEntityCoreService<T, I>.GetEndpointNamePut: String;
-begin
-  Result := GetEndpointNameWithKey;
-
-  if TEntityCoreMapper.GetAttribute<NoShowPrimaryKeyPut>(Self.ClassType) <> nil then
-  begin
-    Result := GetEndpointName;
   end;
 end;
 
@@ -221,28 +190,6 @@ begin
   end;
 
   Result := FClass;
-end;
-
-function TEntityCoreService<T, I>.GetParameter(const AMethodType: TMethodType): String;
-begin
-  case AMethodType of
-    mtPut:
-      begin
-        if TEntityCoreMapper.GetAttribute<NoShowPrimaryKeyDelete>(Self.ClassType) = nil then
-        begin
-          Result := TEntityCoreMapper.GetPrimaryKey(GetModelClass).Name;
-        end;
-      end;
-    mtDelete:
-      if TEntityCoreMapper.GetAttribute<NoShowPrimaryKeyPut>(Self.ClassType) = nil then
-      begin
-        Result := TEntityCoreMapper.GetPrimaryKey(GetModelClass).Name;
-      end;
-  else
-    begin
-      Result := TEntityCoreMapper.GetPrimaryKey(GetModelClass).Name;
-    end;
-  end;
 end;
 
 function TEntityCoreService<T, I>.GetRoute: String;
@@ -279,6 +226,61 @@ begin
 end;
 
 {$IFDEF SWAGGER}
+
+function TEntityCoreService<T, I>.GetEndpointDescription(const AProperty: TRttiProperty): String;
+begin
+  Result := String.Empty;
+
+  var LEndpointDiscription := AProperty.GetAttribute<EndpointDescription>;
+
+  if LEndpointDiscription <> nil then
+  begin
+    Result := LEndpointDiscription.Value.AsString;
+  end;
+end;
+
+function TEntityCoreService<T, I>.GetParameter(const AMethodType: TMethodType): String;
+begin
+  case AMethodType of
+    mtPut:
+      begin
+        if TEntityCoreMapper.GetAttribute<NoShowPrimaryKeyDelete>(Self.ClassType) = nil then
+        begin
+          Result := TEntityCoreMapper.GetPrimaryKey(GetModelClass).Name;
+        end;
+      end;
+    mtDelete:
+      if TEntityCoreMapper.GetAttribute<NoShowPrimaryKeyPut>(Self.ClassType) = nil then
+      begin
+        Result := TEntityCoreMapper.GetPrimaryKey(GetModelClass).Name;
+      end;
+  else
+    begin
+      Result := TEntityCoreMapper.GetPrimaryKey(GetModelClass).Name;
+    end;
+  end;
+end;
+
+function TEntityCoreService<T, I>.GetEndpointNameDelete: String;
+begin
+   Result := GetEndpointNameWithKey;
+
+  if TEntityCoreMapper.GetAttribute<NoShowPrimaryKeyDelete>(Self.ClassType) <> nil then
+  begin
+    Result := GetEndpointName;
+  end;
+end;
+
+function TEntityCoreService<T, I>.GetEndpointNamePut: String;
+begin
+  Result := GetEndpointNameWithKey;
+
+  if TEntityCoreMapper.GetAttribute<NoShowPrimaryKeyPut>(Self.ClassType) <> nil then
+  begin
+    Result := GetEndpointName;
+  end;
+end;
+
 procedure TEntityCoreService<T, I>.MakeSwaggerDelete(const AProperty: TRttiProperty);
 begin
   var LSwaggerDelete :=  FSwagger
