@@ -39,6 +39,13 @@ type
     cExpressionAs              = '%s as %s';
     cCreateField               = 'alter table %s add %s %s %s';
     cEntityCfg                 = 'configuration\entity.cfg';
+    cHtml                      = '< ! DOCTYPE html > <html><head><title> Servidor de Aplica��o < / title > < / head > <body> '+
+                                 '    '+
+                                 '   <h1> Servidor est� on - line < / h1 > <p> Verifica��o   '+
+                                 ' do Servidor da API se est� on - line < / p >  '+
+                                 '              '+
+                                 '<p>@@error</p>' +
+                                 '   < / body > < / html >';
   end;
 
 implementation

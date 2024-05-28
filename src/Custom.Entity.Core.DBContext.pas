@@ -29,9 +29,14 @@ type
     property Connection: IEntityCoreConnection read GetConnection;
   end;
 
-  TEntityCoreDBContext<T: TEntityCoreConnection> = class(TInterfacedObject, IEntityCoreDBContext)
+  TEntityCoreDBContext = class(TInterfacedObject)
+
+  end;
+
+
+  TEntityCoreDBContext<T: TEntityCoreConnection> = class(TEntityCoreDBContext, IEntityCoreDBContext)
   strict private
-    FConnection                           : IEntityCoreConnection;
+    FConnection : IEntityCoreConnection;
   protected
     FSaveChangesList: TObjectList<TEntityCoreModel>;
   private
