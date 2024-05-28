@@ -16,26 +16,26 @@ uses Horse,
      Custom.Enitty.Core.Service;
 
 type
-  TEntity = class(THorse)
+  TEntity = class(THorseProvider)
   strict private
-    class var FHtml : String;
-    class var FError: String;
+    class var FHtml    : String;
+    class var FError   : String;
+    class var FInstance: TEntity;
   private
-    procedure CreateDirectoryLog;
-    procedure CreateDirectoryFiles;
+    class procedure CreateDirectoryLog;
+    class procedure CreateDirectoryFiles;
     class procedure ExtractToFile(const AFileName: String);
     class procedure Register;
-  public
-    constructor Create; override;
 
+    class function GetEntityInstance: TEntity;
+  public
     class function Html(const AHtml: String): TEntity;
-    class function DBContext<I: IEntityCoreDBContext; T: TEntityCoreDBContext>(var AIEntityCoreDBSet: I): TEntity;
+    class function DBContext<I: IEntityCoreDBContext; T: TEntityCoreDBContext>(var AIEntityCoreDBContext: I): TEntity;
     class function Resource(const AResourceName: String): TEntity; overload;
     class function Resource(const AResourceName: String; const ADirectoryExport: String): TEntity; overload;
     class function Resource(const AResourceName: String; const ADirectoryExport: String; const AExtractFileZip: Boolean): TEntity; overload;
-    class function RegisterService<T: TEntityCoreService>: TEntity;
+    class function RegisterService<S: TEntityCoreService>: TEntity;
     class function OnBeforeListen(const AProcedure: TProc): TEntity;
-    class function GetInstance: TEntity; reintroduce;
   end;
 
 implementation
@@ -49,31 +49,7 @@ uses
 
 { TEntity }
 
-constructor TEntity.Create;
-begin
-  inherited;
-  FHtml := TEntityCoreConstant.cHtml;
-  {$IFDEF DEBUG}
-  ReportMemoryLeaksOnShutdown := True;
-  {$ENDIF}
-
-  CreateDirectoryLog;
-  CreateDirectoryFiles;
-
-  Self.OnListen := procedure
-                   begin
-                     Self.Register;
-                   end;
-
-  Self
-    .Use(Jhonson)
-    .Use(Etag)
-    .Use(Paginate)
-    .Use(HandleException)
-    .Use(OctetStream);
-end;
-
-procedure TEntity.CreateDirectoryFiles;
+class procedure TEntity.CreateDirectoryFiles;
 begin
   if not TDirectory.Exists('files') then
   begin
@@ -81,22 +57,23 @@ begin
   end;
 end;
 
-procedure TEntity.CreateDirectoryLog;
+class procedure TEntity.CreateDirectoryLog;
 begin
-  if not TDirectory.Exists('log') then
+  if not TDirectory.Exists('logs') then
   begin
-    TDirectory.CreateDirectory('log');
+    TDirectory.CreateDirectory('logs');
   end;
 end;
 
-class function TEntity.DBContext<I, T>(var AIEntityCoreDBSet: I): TEntity;
+class function TEntity.DBContext<I, T>(var AIEntityCoreDBContext: I): TEntity;
 begin
-  Result := GetInstance;
-  if (AIEntityCoreDBSet = nil) then
+  Result := GetEntityInstance;
+
+  if (AIEntityCoreDBContext = nil) then
   begin
     try
-      AIEntityCoreDBSet := TEntityCoreMapper
-                                        .GetMethod<T>('Create')
+      AIEntityCoreDBContext := TEntityCoreMapper
+                                        .GetMethod(T, 'Create')
                                         .Invoke(T, [])
                                         .AsType<I>;
     except
@@ -129,14 +106,35 @@ begin
   end;
 end;
 
-class function TEntity.GetInstance: TEntity;
+class function TEntity.GetEntityInstance: TEntity;
 begin
-  Result := (inherited GetInstance) as TEntity;
+  if FInstance = nil then
+  begin
+    FInstance := TEntity(GetInstance);
+    FHtml := TEntityCoreConstant.cHtml;
+    {$IFDEF DEBUG}
+    ReportMemoryLeaksOnShutdown := True;
+    {$ENDIF}
+
+    CreateDirectoryLog;
+    CreateDirectoryFiles;
+
+    Register;
+
+    Self
+      .Use(Jhonson)
+      .Use(Etag)
+      .Use(Paginate)
+      .Use(HandleException)
+      .Use(OctetStream);
+  end;
+
+  Result := Finstance;
 end;
 
 class function TEntity.Html(const AHtml: String): TEntity;
 begin
-  Result := GetInstance;
+  Result := GetEntityInstance;
   if not AHtml.Trim.IsEmpty then
   begin
     FHtml := AHtml;
@@ -145,7 +143,7 @@ end;
 
 class function TEntity.OnBeforeListen(const AProcedure: TProc): TEntity;
 begin
-  Result := GetInstance;
+  Result := GetEntityInstance;
   Self.OnListen := AProcedure;
 end;
 
@@ -168,20 +166,20 @@ begin
            end);
 end;
 
-class function TEntity.RegisterService<T>: TEntity;
+class function TEntity.RegisterService<S>: TEntity;
 begin
-  Result := GetInstance;
+  Result := GetEntityInstance;
 
   TEntityCoreMapper
-               .GetMethod<T>('New')
-               .Invoke(T, [])
+               .GetMethod<S>('New')
+               .Invoke(S, [])
                .AsType<IEntityCoreService>
                .Register;
 end;
 
 class function TEntity.Resource(const AResourceName, ADirectoryExport: String; const AExtractFileZip: Boolean): TEntity;
 begin
-  Result := GetInstance;
+  Result := GetEntityInstance;
 
   var LResource := TResourceStream.Create(HInstance,
                                           AResourceName,

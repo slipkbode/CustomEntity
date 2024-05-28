@@ -1,4 +1,4 @@
-unit Custom.Entity.Core.Constant;
+﻿unit Custom.Entity.Core.Constant;
 
 interface
 
@@ -39,13 +39,19 @@ type
     cExpressionAs              = '%s as %s';
     cCreateField               = 'alter table %s add %s %s %s';
     cEntityCfg                 = 'configuration\entity.cfg';
-    cHtml                      = '< ! DOCTYPE html > <html><head><title> Servidor de Aplica��o < / title > < / head > <body> '+
-                                 '    '+
-                                 '   <h1> Servidor est� on - line < / h1 > <p> Verifica��o   '+
-                                 ' do Servidor da API se est� on - line < / p >  '+
-                                 '              '+
-                                 '<p>@@error</p>' +
-                                 '   < / body > < / html >';
+    cHtml                      = '''
+                                 <!DOCTYPE html>
+                                   <html>
+                                     <head>
+                                       <title>Servidor de Aplicação </title>
+                                     </head>
+                                     <body>
+                                       <h1>Servidor está on - line</h1>
+                                       <p>Verificação do Servidor da API se está on - line</p>
+                                       <p>@@error</p>
+                                     </body>
+                                   </html>
+                                 ''';
   end;
 
 implementation
