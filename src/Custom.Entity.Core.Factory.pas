@@ -41,7 +41,7 @@ type
     class function GetConnection: IEntityCoreConnection; static;
     class function GetPrimaryKeys(const AClass: TEntityCoreModelClass): String;
   public
-    class procedure CreateTable(const AClass: TEntityCoreModelClass);
+    class function CreateTable(const AClass: TEntityCoreModelClass): Boolean;
     class procedure CreateDatabase(const ADatabaseName: String);
     class procedure CreateUniqueKey(const AClass: TEntityCoreModelClass);
 
@@ -76,14 +76,17 @@ begin
   end;
 end;
 
-class procedure TEntityCoreFactory.CreateTable(const AClass: TEntityCoreModelClass);
+class function TEntityCoreFactory.CreateTable(const AClass: TEntityCoreModelClass): Boolean;
 begin
+  Result := False;
+
   try
     var LTableName := TEntityCoreMapper.GetTableName(AClass);
 
     if not Connection.TableExists(LTableName) then
     begin
       Connection.ExecSQL(GetScriptTable(AClass));
+      Result := True;
     end
     else
     begin
@@ -141,7 +144,10 @@ begin
                          LUniqueKey.Value]);
     end;
 
-    Connection.ExecSQL(LScript);
+    if not LScript.Trim.IsEmpty then
+    begin
+      Connection.ExecSQL(LScript);
+    end;
   end;
 end;
 

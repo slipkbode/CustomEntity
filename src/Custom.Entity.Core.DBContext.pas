@@ -255,8 +255,10 @@ begin
 
     try
       TEntity.Connection.StartTransaction;
-      TEntityCoreFactory.CreateTable(LClass);
-      InsertRecordsDefault(LClass);
+      if TEntityCoreFactory.CreateTable(LClass) then
+      begin
+        InsertRecordsDefault(LClass);
+      end;
       TEntity.Connection.Commit;
     except
       on E: EHorseException do

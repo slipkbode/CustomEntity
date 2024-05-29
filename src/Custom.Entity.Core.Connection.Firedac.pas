@@ -308,7 +308,7 @@ begin
       LParams
          .AddParameter
          .SetNameValue('uniquekey',
-                       AUniquekeyName.ToUpper);
+                       AUniquekeyName.Insert(0, 'uq_').ToUpper);
 
       ExecSQL(LSelectUniqueKey,
               LParams,
