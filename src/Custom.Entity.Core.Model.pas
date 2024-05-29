@@ -3,8 +3,13 @@ unit Custom.Entity.Core.Model;
 interface
 
 uses
-  System.Classes, Custom.Entity.Core.Enum, Custom.Entity.Core.Attributes,
-  System.Rtti, System.SysUtils, Custom.Entity.Core.Types;
+  System.Classes,
+  Custom.Entity.Core.Enum,
+  Custom.Entity.Core.Attributes,
+  System.Rtti,
+  System.SysUtils,
+  System.Generics.Collections,
+  Custom.Entity.Core.Types;
 
 type
   TEntityCoreModelClass = class of TEntityCoreModel;
@@ -23,7 +28,7 @@ type
     property ProcedureIdKey: TProc<Int64> read FProcedureIdKey write FProcedureIdKey;
 
     function Clone: TEntityCoreModel;
-//    function IsObjectValid: Boolean;
+    class function GetValueInsertedDefault: TArray<TArray<Variant>>; virtual;
 
     constructor Create; virtual;
     destructor Destroy; override;
@@ -75,21 +80,10 @@ begin
   FProcedureIdKey := nil;
   inherited;
 end;
-//
-//function TEntityCoreModel.IsObjectValid: Boolean;
-//begin
-//  Result := True;
-//
-//  var LProperties := TEntityCoreMapper.GetProperties(Self.ClassType);
-//
-//  for var LProperty in LProperties do
-//  begin
-//    var LValue := LProperty.GetValue(Self);
-//
-//    if LProperty.IsNotNull and LValue.IsEmpty then
-//
-//  end;
-//end;
+
+class function TEntityCoreModel.GetValueInsertedDefault: TArray<TArray<Variant>>;
+begin
+end;
 
 procedure TEntityCoreModel.SetPrimaryKey(const AIdKey: Int64);
 begin

@@ -4,12 +4,13 @@ interface
 
 uses System.Rtti, Custom.Entity.Core.Attributes, System.Variants, REST.Json, System.JSON,
   System.Generics.Collections, System.TypInfo, System.StrUtils, Custom.Entity.Core.Types,
-  System.SysUtils, System.Generics.Defaults;
+  System.SysUtils, System.Generics.Defaults, Data.DB;
 
 type
   THelperTRttiProperty = class helper for TRttiProperty
   public
     function IsPrimaryKey: Boolean;
+    function IsUniqueKey: Boolean;
     function IsNotNull: Boolean;
     function IsAutoIncrement: Boolean;
     function IsIdentity: Boolean;
@@ -37,6 +38,11 @@ type
   THelperTArrayTValue = record helper for TArrayValue
   public
     function Field(const AFieldName: String): TValue;
+  end;
+
+  THelperTParam = class helper for TParam
+  public
+    procedure SetNameValue(const AName: String; const AValue: Variant);
   end;
 implementation
 
@@ -102,6 +108,11 @@ end;
 function THelperTRttiProperty.IsReadOnly: Boolean;
 begin
   Result := HasAttribute<ReadOnly> or Self.IsReadOnly;
+end;
+
+function THelperTRttiProperty.IsUniqueKey: Boolean;
+begin
+  Result := HasAttribute<UniqueKey>;
 end;
 
 function THelperTRttiProperty.ToPair(const AObject: TObject): TJsonPair;
@@ -218,6 +229,14 @@ begin
       Exit(LValue);
     end;
   end;
+end;
+
+{ THelperTParam }
+
+procedure THelperTParam.SetNameValue(const AName: String; const AValue: Variant);
+begin
+  Self.Name  := AName;
+  Self.Value := AValue;
 end;
 
 end.

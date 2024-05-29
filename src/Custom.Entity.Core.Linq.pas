@@ -3,9 +3,15 @@ unit Custom.Entity.Core.Linq;
 interface
 
 uses
-  System.TypInfo, Custom.Entity.Core.Types, Custom.Entity.Core.Linq.Constant, Data.DB,
-  System.Generics.Collections, System.Variants,
-  System.Rtti, Custom.Entity.Core.Attributes, Horse, Custom.Entity.Core.Model,
+  System.TypInfo,
+  Custom.Entity.Core.Types,
+  Custom.Entity.Core.Linq.Constant,
+  Data.DB,
+  System.Generics.Collections,
+  System.Variants,
+  System.Rtti,
+  Custom.Entity.Core.Attributes,
+  Custom.Entity.Core.Model,
   Custom.Entity.Core.Connection;
 
 type
@@ -117,7 +123,10 @@ type
 implementation
 
 uses
-  System.SysUtils, Custom.Entity.Core.Mapper, Custom.Entity.Core.Linq.Helper, Custom.Entity.Core.DBContext;
+  System.SysUtils,
+  Custom.Entity.Core.Mapper,
+  Custom.Entity.Core.Linq.Helper,
+  Custom.Entity.Core;
 
 function From(const AClass: TEntityCoreModelClass): IQueryAble; overload;
 begin
@@ -339,12 +348,12 @@ end;
 
 procedure TQueryableResult.Execute(const ASQLJson: Boolean);
 begin
-  if ASQLJson and DBContext.Connection.SupportedJson then
+  if ASQLJson and TEntity.Connection.SupportedJson then
   begin
     FContext := Format(TEntityLinqConstat.cSelectJson, [FContext]);
   end;
 
-  DBContext.Connection.ExecSQL(FContext, FParams, FDataSet);
+  TEntity.Connection.ExecSQL(FContext, FParams, FDataSet);
 
   FDataSet.DisableControls;
 end;

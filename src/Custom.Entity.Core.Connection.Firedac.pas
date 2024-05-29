@@ -2,28 +2,45 @@ unit Custom.Entity.Core.Connection.Firedac;
 
 interface
 
-uses Custom.Entity.Core.Connection, Firedac.Comp.Client, System.Generics.Collections, Data.DB,
-  FireDAC.Stan.Param, System.Classes, FireDAC.Stan.Def, FireDAC.Stan.Async, FireDAC.DApt, FireDAC.Phys.SQLite,
-  FireDAC.Phys.MSSQL, FireDAC.Phys.FB, FireDAC.Phys.Oracle, FireDAC.Phys.PG,
+uses Custom.Entity.Core.Connection,
+     Firedac.Comp.Client,
+     System.Generics.Collections,
+     Data.DB,
+     Custom.Entity.Core.Model,
+     FireDAC.Stan.Param,
+     System.Classes,
+     FireDAC.Stan.Def,
+     FireDAC.Stan.Async,
+     FireDAC.DApt,
+     FireDAC.Phys.SQLite,
+     FireDAC.Phys.MSSQL,
+     FireDAC.Phys.FB,
+     FireDAC.Phys.Oracle,
+     FireDAC.Phys.PG,
   Horse;
 
 type
-  TEntityCoreConnectionFiredac = class(TEntityCoreConnection<TFDConnection>, IEntityCoreConnection)
+  IEntityCoreConnectionFiredac = interface(IEntityCoreConnection)
+    ['{5C9E1777-1958-4910-B8C1-A21A3352045F}']
+    function ExecSQL(const ASQL: String; AParams: TFDParams): LongInt; overload;
+    function ExecSQL(const ASQL: String; AParams: TFDParams; var AResultSet: TDataSet): LongInt; overload;
+  end;
+
+  TEntityCoreConnectionFiredac = class(TFDConnection, IEntityCoreConnectionFiredac)
   private
-    function ExecSQL(const ASQL: String; const AParams: TParams; var ADataSet: TDataSet): Integer; overload;
-    function ExecSQL(const ASQL: String; var ADataSet: TDataSet): Integer; overload;
-    function ExecSQL(const ASQL: String): Integer; overload;
-    function ExecSQL(const ASQL: String; const AParams: TArray<Variant>): Integer; overload;
-    function ExecSQLScalar(const ASQL: String; const AParams: TArray<Variant>): Integer; overload;
-    function ExecSQLScalar(const ASQL: String): Integer; overload;
-    function BeginTransaction: Integer;
+    function ExecSQL(const ASQL: String; AParams: TParams): LongInt; overload;
+    function ExecSQL(const ASQL: String; AParams: TParams; var AResultSet: TDataSet): LongInt; overload;
     function GetDefaultConfiguration: String;
     function IsFirebird: Boolean;
     function IsSQLite: Boolean;
     function IsSQLServer: Boolean;
+    function IsMySQL: Boolean;
+    function TableExists(const ATableName: String): Boolean;
+    function FieldExists(const ATableName, AFieldName: String): Boolean;
+    function DatabaseExists(const ADatabaseName: String): Boolean;
+    function UniqueKeyExists(const ATableName, AUniquekeyName: String): String;
+    function SupportedJson: Boolean;
 
-    procedure CommitTransaction;
-    procedure RollbackTransaction;
     procedure SetConfiguration(const ADatabaseName: String); overload;
     procedure SetConfiguration(const ADriverID, AServer: String); overload;
     procedure SetConfiguration(const ADriverID, AServer, AUserName, APassword: String); overload;
@@ -31,86 +48,70 @@ type
     procedure SetConfiguration(const ADatabaseName, ADriverID, AServer, AUserName, APassword: String); overload;
     procedure SetConfiguration(const ADatabaseName, ADriverID, AServer, AUserName, APassword: String; APort: Integer); overload;
     procedure LoadFromFile(const AFileName: String);
-    procedure Open;
-
+    procedure InsertRecord(const AModel: TEntityCoreModel; out AIdKey: Int64);
+    procedure UpdateRecord(const AModel: TEntityCoreModel);
   public
-    constructor Create;
+    constructor Create(AOwner: TComponent); override;
+    class function New: IEntityCoreConnectionFiredac;
   end;
 
 implementation
 
 uses
-  System.Variants, System.SysUtils;
+  System.Variants, System.SysUtils, Custom.Entity.Core.Constant, Custom.Entity.Core.Server.Helper, Custom.Entity.Core.Factory;
 
 { TEntityConnectionFiredac }
 
-function TEntityCoreConnectionFiredac.BeginTransaction: Integer;
-begin
-  if not Connection.InTransaction then
-  begin
-    Connection.StartTransaction;
-  end;
 
-  Result := Connection.InTransaction.ToInteger;
-end;
-
-procedure TEntityCoreConnectionFiredac.CommitTransaction;
-begin
-  if Connection.InTransaction then
-  begin
-    Connection.Commit;
-  end;
-end;
-
-constructor TEntityCoreConnectionFiredac.Create;
+constructor TEntityCoreConnectionFiredac.Create(AOwner: TComponent);
 begin
   inherited;
-  Connection.LoginPrompt                 := False;
-  Connection.UpdateOptions.FastUpdates   := True;
-  Connection.FetchOptions.Unidirectional := True;
-  Connection.FetchOptions.AutoClose      := True;
-  Connection.FetchOptions.RowsetSize     := 50;
-  Connection.ConnectedStoredUsage        := [];
+  Self.LoginPrompt                 := False;
+  Self.UpdateOptions.FastUpdates   := True;
+  Self.FetchOptions.Unidirectional := True;
+  Self.FetchOptions.AutoClose      := True;
+  Self.FetchOptions.RowsetSize     := 50;
+  Self.ConnectedStoredUsage        := [];
 end;
 
-function TEntityCoreConnectionFiredac.ExecSQL(const ASQL: string): Integer;
+function TEntityCoreConnectionFiredac.ExecSQL(const ASQL: String; AParams: TParams): LongInt;
 begin
-  Result := Connection
-                  .ExecSQL(ASQL);
+  Result := ExecSQL(ASQL, TFDParams(AParams));
 end;
 
-function TEntityCoreConnectionFiredac.ExecSQL(const ASQL: String; var ADataSet: TDataSet): Integer;
+function TEntityCoreConnectionFiredac.DatabaseExists(const ADatabaseName: String): Boolean;
 begin
-  Result := Connection
-                  .ExecSQL(ASQL, ADataSet);
-end;
+  var LDatabaseExists := '';
 
-function TEntityCoreConnectionFiredac.ExecSQL(const ASQL: String; const AParams: TParams; var ADataSet: TDataSet): Integer;
-begin
-  try
-    Result := Connection.ExecSQL(ASQL,
-                                 TFDParams(AParams),
-                                 ADataSet);
-  except
-    raise;
+  if IsSQLServer then
+  begin
+    LDatabaseExists := TEntityCoreConstant.cDatabaseExistsSQLServer;
   end;
+
+  Result := ExecSQLScalar(LDatabaseExists, [ADatabaseName]) <> 0;
 end;
 
-function TEntityCoreConnectionFiredac.ExecSQL(const ASQL: String; const AParams: TArray<Variant>): Integer;
+function TEntityCoreConnectionFiredac.ExecSQL(const ASQL: String; AParams: TParams; var AResultSet: TDataSet): LongInt;
 begin
-  Result := Connection.
-                   ExecSQL(ASQL, AParams);
+  Result := ExecSQL(ASQL, TFDParams(AParams), AResultSet);
 end;
 
-function TEntityCoreConnectionFiredac.ExecSQLScalar(const ASQL: String): Integer;
+function TEntityCoreConnectionFiredac.FieldExists(const ATableName, AFieldName: String): Boolean;
 begin
-  Result := Connection.ExecSQLScalar(ASQL);
-end;
+  var LFieldExists := '';
 
-function TEntityCoreConnectionFiredac.ExecSQLScalar(const ASQL: String;
-  const AParams: TArray<Variant>): Integer;
-begin
-  Result := Connection.ExecSQLScalar(ASQL, AParams);
+  if IsFirebird then
+  begin
+    LFieldExists := TEntityCoreConstant.cFieldExistsFirebird;
+  end
+  else if IsSQLServer then
+  begin
+    LFieldExists := TEntityCoreConstant.cFieldExistsSQLServer;
+  end;
+
+  Result := ExecSQLScalar(LFieldExists,
+                          [ATableName.ToUpper,
+                           AFieldName.ToUpper]) <> 0;
 end;
 
 function TEntityCoreConnectionFiredac.GetDefaultConfiguration: String;
@@ -121,45 +122,65 @@ begin
                    'Password=%s', #13);
 end;
 
+procedure TEntityCoreConnectionFiredac.InsertRecord(const AModel: TEntityCoreModel; out AIdKey: Int64);
+begin
+  var LDataSet: TDataSet := nil;
+  try
+    try
+      var LRecordInsert := TEntityCoreFactory.RecordInsert(AModel);
+
+      ExecSQL(LRecordInsert.Insert, LRecordInsert.Params, LDataSet);
+
+      AIdKey := LDataSet.Fields[0].AsVariant;
+    except
+      raise;
+//      on E: Exception do
+//      begin
+//        raise EHorseException
+//                          .New
+//                          .Title('Ops... Algo de errado')
+//                          .Error('Erro ao gerar o script do registro da tabela ' + TEntityCoreMapper.GetTableName(AModel.ClassType))
+//                          .Detail(E.Message)
+//                          .Status(THTTPStatus.InternalServerError)
+//                          .&Type(TMessageType.Error)
+//                          .&Unit(Self.UnitName)
+//                          .Hint('Method InsertRecord')
+//                          .Code(022)
+//      end;
+    end;
+  finally
+    LDataSet.Free;
+  end;
+end;
+
 function TEntityCoreConnectionFiredac.IsFirebird: Boolean;
 begin
-  Result := Connection
-                 .DriverName
-                 .Equals('FB');
+  Result := DriverName.Equals('FB');
+end;
+
+function TEntityCoreConnectionFiredac.IsMySQL: Boolean;
+begin
+  Result := DriverName.Equals('MySQL')
 end;
 
 function TEntityCoreConnectionFiredac.IsSQLite: Boolean;
 begin
-  Result := Connection
-                 .DriverName
-                 .Equals('SQLite');
+  Result := DriverName.Equals('SQLite');
 end;
 
 function TEntityCoreConnectionFiredac.IsSQLServer: Boolean;
 begin
-  Result := Connection
-                 .DriverName
-                 .Equals('MSSQL');
+  Result := DriverName.Equals('MSSQL');
 end;
 
 procedure TEntityCoreConnectionFiredac.LoadFromFile(const AFileName: String);
 begin
-  Connection
-        .Params
-        .LoadFromFile(AFileName);
+  Params.LoadFromFile(AFileName);
 end;
 
-procedure TEntityCoreConnectionFiredac.Open;
+class function TEntityCoreConnectionFiredac.New: IEntityCoreConnectionFiredac;
 begin
-  Connection.Open;
-end;
-
-procedure TEntityCoreConnectionFiredac.RollbackTransaction;
-begin
-  if Connection.InTransaction then
-  begin
-    Connection.Rollback;
-  end;
+  Result := Self.Create(nil);
 end;
 
 procedure TEntityCoreConnectionFiredac.SetConfiguration(const ADriverID, AServer: String);
@@ -170,10 +191,10 @@ end;
 procedure TEntityCoreConnectionFiredac.SetConfiguration(const ADatabaseName: String);
 begin
   try
-    Connection.Close;
-    Connection.Params.Database := ADatabaseName;
-    Connection.Open;
-    Connection.Close;
+    Close;
+    Params.Database := ADatabaseName;
+    Open;
+    Close;
   except
     on E: Exception do
     begin
@@ -210,20 +231,20 @@ procedure TEntityCoreConnectionFiredac.SetConfiguration(const ADatabaseName, ADr
   APort: Integer);
 begin
   try
-    Connection.Close;
-    Connection.Params.Database := ADatabaseName;
-    Connection.Params.UserName := AUserName;
-    Connection.Params.Password := APassword;
-    Connection.DriverName      := ADriverID;
-    Connection.Params.AddPair('Server', AServer);
+    Close;
+    Params.Database := ADatabaseName;
+    Params.UserName := AUserName;
+    Params.Password := APassword;
+    DriverName      := ADriverID;
+    Params.AddPair('Server', AServer);
 
     if APort > 0 then
     begin
-      Connection.Params.AddPair('Port', APort.ToString);
+      Params.AddPair('Port', APort.ToString);
     end;
 
-    Connection.Open;
-    Connection.Close;
+    Open;
+    Close;
   except
     on E: Exception do
     begin
@@ -241,10 +262,97 @@ begin
   end;
 end;
 
-//function TEntityCoreConnectionFiredac.ExecSQLScalar(const ASQL: string; const AParams: TArray<Variant>; const AFieldType: TArray<TFieldType>): Variant;
-//begin
-//  Result := Connection
-//                  .ExecSQLScalar(ASQL, AParams, AFieldType);
-//end;
+function TEntityCoreConnectionFiredac.SupportedJson: Boolean;
+begin
+  Result := False;
+end;
+
+function TEntityCoreConnectionFiredac.TableExists(const ATableName: String): Boolean;
+begin
+  var LTableExists := '';
+
+  if IsFirebird then
+  begin
+    LTableExists := TEntityCoreConstant.cTableExistsFirebird;
+  end
+  else if IsSQLServer then
+  begin
+    LTableExists := TEntityCoreConstant.cTableExistsSQLServer;
+  end;
+
+  Result := ExecSQLScalar(LTableExists, [ATableName.ToUpper]) <> 0;
+end;
+
+function TEntityCoreConnectionFiredac.UniqueKeyExists(const ATableName, AUniquekeyName: String): String;
+begin
+  var LSelectUniqueKey   := '';
+  var LDataSet: TDataSet := nil;
+  var LParams            := TParams.Create(nil);
+
+  try
+    try
+      if IsFirebird then
+      begin
+        LSelectUniqueKey := TEntityCoreConstant.cUniqueKeyExistsFirebird;
+      end
+      else if IsSQLServer then
+      begin
+        LSelectUniqueKey := TEntityCoreConstant.cUniqueKeyExistsSQLServer;
+      end;
+
+      LParams
+         .AddParameter
+         .SetNameValue('tablename',
+                       ATableName.ToUpper);
+
+      LParams
+         .AddParameter
+         .SetNameValue('uniquekey',
+                       AUniquekeyName.ToUpper);
+
+      ExecSQL(LSelectUniqueKey,
+              LParams,
+              LDataSet);
+
+      Result := LDataSet.Fields[0].AsString;
+    except
+      on E: Exception do
+      begin
+        raise EHorseException
+                           .New
+                           .Error(E.Message)
+                           .Title('Erro ao verificar unique key')
+                           .Status(THTTPStatus.InternalServerError)
+                           .&Detail('Falha na execução do sql')
+                           .&Unit(Self.UnitName)
+                           .&Type(TMessageType.Error)
+                           .Code(070);
+      end;
+    end;
+  finally
+    LDataSet.Free;
+    LParams.Free;
+  end;
+end;
+
+procedure TEntityCoreConnectionFiredac.UpdateRecord(const AModel: TEntityCoreModel);
+begin
+  var LRecordUpdate := TEntityCoreFactory.RecordUpdate(AModel);
+
+  if not LRecordUpdate.Update.Trim.IsEmpty then
+  begin
+    ExecSQL(LRecordUpdate.Update, LRecordUpdate.ArrayParams);
+  end;
+//      raise EHorseException
+//                        .New
+//                        .Title('Ops... Algo de errado')
+//                        .Error('Erro ao gerar o script do registro da tabela ' + TEntityCoreMapper.GetTableName(AModel.ClassType))
+//                        .Detail(E.Message)
+//                        .Status(THTTPStatus.InternalServerError)
+//                        .&Type(TMessageType.Error)
+//                        .&Unit(Self.UnitName)
+//                        .Hint('Method UpdateRecord')
+//                        .Code(028)
+end;
 
 end.

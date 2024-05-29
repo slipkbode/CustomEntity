@@ -13,6 +13,7 @@ uses Horse,
      Custom.Entity.Core.DBContext,
      System.Classes,
      System.Types,
+     Custom.Entity.Core.Connection,
      Custom.Enitty.Core.Service;
 
 type
@@ -21,6 +22,7 @@ type
     class var FHtml    : String;
     class var FError   : String;
     class var FInstance: TEntity;
+    class var FConnection: IEntityCoreConnection;
   private
     class procedure CreateDirectoryLog;
     class procedure CreateDirectoryFiles;
@@ -31,11 +33,14 @@ type
   public
     class function Html(const AHtml: String): TEntity;
     class function DBContext<I: IEntityCoreDBContext; T: TEntityCoreDBContext>(var AIEntityCoreDBContext: I): TEntity;
+    class function Connection<T: class>: TEntity; overload;
     class function Resource(const AResourceName: String): TEntity; overload;
     class function Resource(const AResourceName: String; const ADirectoryExport: String): TEntity; overload;
     class function Resource(const AResourceName: String; const ADirectoryExport: String; const AExtractFileZip: Boolean): TEntity; overload;
     class function RegisterService<S: TEntityCoreService>: TEntity;
     class function OnBeforeListen(const AProcedure: TProc): TEntity;
+
+    class function Connection: IEntityCoreConnection; overload;
   end;
 
 implementation
@@ -48,6 +53,20 @@ uses
   System.Zip;
 
 { TEntity }
+
+class function TEntity.Connection: IEntityCoreConnection;
+begin
+  Result := FConnection;
+end;
+
+class function TEntity.Connection<T>: TEntity;
+begin
+  Result      := GetEntityInstance;
+  FConnection := TEntityCoreMapper
+                             .GetMethod<T>('New')
+                             .Invoke(T, [])
+                             .AsType<IEntityCoreConnection>;
+end;
 
 class procedure TEntity.CreateDirectoryFiles;
 begin

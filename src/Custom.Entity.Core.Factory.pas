@@ -2,9 +2,14 @@ unit Custom.Entity.Core.Factory;
 
 interface
 
-uses Custom.Entity.Core.Model, Custom.Entity.Core.Connection, Data.DB,
-  Custom.Entity.Core.Attributes, System.SysUtils, System.Rtti, System.TypInfo,
-  System.Generics.Collections, Custom.Entity.Core.DBContext;
+uses Custom.Entity.Core.Model,
+     Custom.Entity.Core.Connection,
+     Data.DB,
+     Custom.Entity.Core.Attributes,
+     System.SysUtils,
+     System.Rtti,
+     System.TypInfo,
+     System.Generics.Collections;
 
 type
   TEntityCoreFactory = class
@@ -35,19 +40,25 @@ type
     class function GetTypeSmallInt: String; static;
     class function GetConnection: IEntityCoreConnection; static;
     class function GetPrimaryKeys(const AClass: TEntityCoreModelClass): String;
-
   public
     class procedure CreateTable(const AClass: TEntityCoreModelClass);
     class procedure CreateDatabase(const ADatabaseName: String);
-    class function RecordInsert(const AModel: TEntityCoreModel): TRecordScript;
+    class procedure CreateUniqueKey(const AClass: TEntityCoreModelClass);
+
+    class function RecordInsert(const AModel: TEntityCoreModel): TRecordScript; overload;
+    class function RecordInsert(const AModel: TEntityCoreModelClass): String; overload;
     class function RecordUpdate(const AModel: TEntityCoreModel): TRecordScript;
+
     class property Connection: IEntityCoreConnection read GetConnection;
   end;
 
 implementation
 
 uses
-  Custom.Entity.Core.Mapper, Custom.Entity.Core.Server.Helper, Custom.Entity.Core.Constant;
+  Custom.Entity.Core.Mapper,
+  Custom.Entity.Core.Server.Helper,
+  Custom.Entity.Core.Constant,
+  Custom.Entity.Core;
 
 { TEntityCoreFactory }
 
@@ -86,10 +97,52 @@ begin
         end;
       end;
     end;
+
+    CreateUniqueKey(AClass);
   except
     Connection.Close;
     raise;
   end
+end;
+
+class procedure TEntityCoreFactory.CreateUniqueKey(const AClass: TEntityCoreModelClass);
+begin
+  var LUniqueKeyList := TEntityCoreMapper.GetUniqueKeys(AClass);
+  var LTableName     := TEntityCoreMapper.GetTableName(AClass);
+  var LScript        := '';
+
+  for var LUniqueKey in LUniqueKeyList do
+  begin
+    var LFields := Connection.UniqueKeyExists(LTableName, LUniqueKey.Key);
+
+    if not LFields.Trim.IsEmpty and not LFields.Equals(LUniqueKey.Value) then
+    begin
+      if not Connection.IsMySQL then
+      begin
+        LScript := Format(TEntityCoreConstant.cDropUniqueKey,
+                          [LTableName,
+                           LUniqueKey.Key]);
+      end
+      else
+      begin
+        LScript := Format(TEntityCoreConstant.cDropUniqueKeyMySQL,
+                          [LTableName,
+                           LUniqueKey.Key]);
+      end;
+    end;
+
+    if LFields.Trim.IsEmpty or LScript.Contains('drop') then
+    begin
+      LScript := LScript +
+                 #13 +
+                 Format(TEntityCoreConstant.cCreateUniqueKey,
+                        [LTableName,
+                         LUniqueKey.Key,
+                         LUniqueKey.Value]);
+    end;
+
+    Connection.ExecSQL(LScript);
+  end;
 end;
 
 class function TEntityCoreFactory.GetScriptField(const ATableName: String; const AProperty: TRttiProperty): String;
@@ -171,7 +224,7 @@ end;
 
 class function TEntityCoreFactory.GetConnection: IEntityCoreConnection;
 begin
-  Result := DBContext.Connection;
+  Result := TEntity.Connection;
 end;
 
 class function TEntityCoreFactory.GetFieldType(const AProperty: TRttiProperty; ATypeKind: TTypeKind = tkUnknown): String;
@@ -329,6 +382,38 @@ begin
                            LPrimaryKey]);
 end;
 
+
+class function TEntityCoreFactory.RecordInsert(const AModel: TEntityCoreModelClass): String;
+begin
+  var LTableName    := TEntityCoreMapper.GetTableName(AModel);
+  var LPropertyList := TEntityCoreMapper.GetProperties(AModel);
+  var LFieldList    := '';
+  var LParamList    := '';
+
+  for var LProperty in LPropertyList do
+  begin
+    if LProperty.IsAutoIncrement or LProperty.IsIdentity then
+    begin
+      Continue;
+    end;
+
+    if LFieldList.Trim.IsEmpty then
+    begin
+      LFieldList := LProperty.Name;
+      LParamList := ':' + LProperty.Name;
+    end
+    else
+    begin
+      LParamList := LParamList + ',:' + LProperty.Name;
+      LFieldList := LFieldList + ',' + LProperty.Name;
+    end;
+  end;
+
+  Result := Format(TEntityCoreConstant.cInsertSQLNoReturn,
+                   [LTableName,
+                    LFieldList,
+                    LParamList]);
+end;
 
 class function TEntityCoreFactory.RecordUpdate(const AModel: TEntityCoreModel): TRecordScript;
 begin

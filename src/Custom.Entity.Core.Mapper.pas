@@ -33,6 +33,7 @@ type
     class function GetFields(const AClass: TClass): TArray<TRttiField>;
     class function GetPrimaryKey(const AClass: TClass): TRttiProperty;
     class function GetPrimaryKeys(const AClass: TClass): TArrayProperties;
+    class function GetUniqueKeys(const AClass: TClass): TDictionary<String, String>;
     class function GetTableName(const AClass: TClass): String;
   end;
 
@@ -162,6 +163,35 @@ begin
     if LProperty.IsPrimaryKey then
     begin
       Insert(LProperty, Result, Length(Result));
+    end;
+  end;
+end;
+
+class function TEntityCoreMapper.GetUniqueKeys(const AClass: TClass): TDictionary<String, String>;
+begin
+  Result := TDictionary<String, String>.Create;
+
+  var LProperties := GetProperties(AClass);
+
+  for var LProperty in LProperties do
+  begin
+    if (LProperty.IsUniqueKey) then
+    begin
+      var LUniqueKeyName := LProperty.GetAttribute<UniqueKey>.Value.AsString;
+      var LValue         := '';
+
+      Result.TryGetValue(LUniqueKeyName, LValue);
+
+      if LValue.Trim.IsEmpty then
+      begin
+        LValue := LProperty.Name;
+      end
+      else
+      begin
+        LValue := LValue + ',' + LProperty.Name;
+      end;
+
+      Result.AddOrSetValue(LUniqueKeyName, LValue);
     end;
   end;
 end;

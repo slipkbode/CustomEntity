@@ -3,8 +3,17 @@ unit Custom.Entity.Core.DBContext;
 interface
 
 uses
-  Custom.Entity.Core.Connection, Custom.Entity.Core.Attributes, Custom.Entity.Core.Model, Custom.Entity.Core.Linq, Horse, System.Generics.Collections,
-  System.Classes, System.Rtti, Custom.Entity.Core.Types, System.SysUtils;
+  Custom.Entity.Core.Connection,
+  Custom.Entity.Core.Attributes,
+  Custom.Entity.Core.Model,
+  Custom.Entity.Core.Linq,
+  Horse,
+  System.Generics.Collections,
+  System.Classes,
+  System.Rtti,
+  Custom.Entity.Core.Types,
+  System.SysUtils,
+  Data.DB;
 
 type
   IEntityCoreDBSet = interface(IQueryAble)
@@ -22,21 +31,12 @@ type
   IEntityCoreDBContext = interface
     ['{56634E35-3A39-4562-9A4A-82046908101A}']
     function GetDBSetByModel(const AClass: TEntityCoreModelClass): TValue;
-    function GetConnection: IEntityCoreConnection;
 
     procedure SaveChanges;
-
-    property Connection: IEntityCoreConnection read GetConnection;
-  end;
-
-  TEntityCoreDBContext = class(TInterfacedObject)
-
   end;
 
 
-  TEntityCoreDBContext<T: TEntityCoreConnection> = class(TEntityCoreDBContext, IEntityCoreDBContext)
-  strict private
-    FConnection : IEntityCoreConnection;
+  TEntityCoreDBContext = class(TInterfacedObject, IEntityCoreDBContext)
   protected
     FSaveChangesList: TObjectList<TEntityCoreModel>;
   private
@@ -47,16 +47,14 @@ type
     procedure SetDatabaseNameArchiveConfiguration(const ADatabaseName: String);
     procedure Setconfiguration;
     procedure SaveChanges;
+    procedure InsertRecordsDefault(const AClass: TEntityCoreModelClass);
 
     function GetDBSetByModel(const AClass: TEntityCoreModelClass): TValue;
-    function GetConnection: IEntityCoreConnection;
   protected
 
   public
     constructor Create; virtual;
     destructor Destroy; override;
-
-    property Connection: IEntityCoreConnection read GetConnection;
   end;
 
   TEntityCoreDBSet<T: TEntityCoreModel> = class(TQueryAble, IEntityCoreDBSet<T>)
@@ -80,18 +78,24 @@ var
 
 implementation
 
-uses Custom.Entity.Core.Mapper, System.IOUtils, Custom.Entity.Core.Factory, Custom.Entity.Core.Enum, System.TypInfo, Custom.Entity.Core.Server.Helper,
+uses Custom.Entity.Core.Mapper,
+     System.IOUtils,
+     Custom.Entity.Core.Factory,
+     Custom.Entity.Core.Enum,
+     System.TypInfo,
+     Custom.Entity.Core,
+     Custom.Entity.Core.Server.Helper,
      Custom.Entity.Core.Constant;
 
 { TEntityCoreDBContext }
 
-procedure TEntityCoreDBContext<T>.Setconfiguration;
+procedure TEntityCoreDBContext.Setconfiguration;
 begin
-  Connection.LoadFromFile(TEntityCoreConstant.cEntityCfg);
-
   try
     try
-      Connection.Open;
+      TEntity.Connection.Close;
+      TEntity.Connection.LoadFromFile(TEntityCoreConstant.cEntityCfg);
+      TEntity.Connection.Open;
     except
       on E: Exception do
       begin
@@ -106,11 +110,11 @@ begin
       end;
     end;
   finally
-    Connection.Close;
+    TEntity.Connection.Close;
   end;
 end;
 
-procedure TEntityCoreDBContext<T>.SetDatabaseNameArchiveConfiguration(const ADatabaseName: String);
+procedure TEntityCoreDBContext.SetDatabaseNameArchiveConfiguration(const ADatabaseName: String);
 begin
   var LFile := TStringList.Create;
 
@@ -125,30 +129,29 @@ begin
       LFile.SaveToFile(TEntityCoreConstant.cEntityCfg);
     end;
 
-    Connection.Close;
     Setconfiguration;
   finally
     LFile.Free;
   end;
 end;
 
-procedure TEntityCoreDBContext<T>.CreateDatabase;
+procedure TEntityCoreDBContext.CreateDatabase;
 begin
-  if not Connection.IsFirebird then
+  if not TEntity.Connection.IsFirebird then
   begin
     var LDatabaseNameAttribute := TEntityCoreMapper.GetAttribute<DatabaseName>(Self.ClassType);
 
     if LDatabaseNameAttribute = nil then
     begin
-      EHorseException
-                  .New
-                  .Title('Sem banco de dados')
-                  .Error('Não foi informado na classe ' + Self.ClassName + ' o atributo DatabaseName')
-                  .Status(THTTPStatus.NotAcceptable)
-                  .Detail('Verifique a classe e atribua o atributo DatabaseName na declaracao da classe')
-                  .&Type(TMessageType.Error)
-                  .&Unit(Self.UnitName)
-                  .Hint('Method CreateDatabase');
+      raise EHorseException
+                        .New
+                        .Title('Sem banco de dados')
+                        .Error('Não foi informado na classe ' + Self.ClassName + ' o atributo DatabaseName')
+                        .Status(THTTPStatus.NotAcceptable)
+                        .Detail('Verifique a classe e atribua o atributo DatabaseName na declaracao da classe')
+                        .&Type(TMessageType.Error)
+                        .&Unit(Self.UnitName)
+                        .Hint('Method CreateDatabase');
     end;
 
     var LDatabaseName := LDatabaseNameAttribute.Value.AsString;
@@ -170,7 +173,7 @@ begin
       end;
     end;
 
-     try
+    try
       SetDatabaseNameArchiveConfiguration(LDatabaseName);
     except
       on E: Exception do
@@ -189,7 +192,7 @@ begin
   end;
 end;
 
-procedure TEntityCoreDBContext<T>.CreateDirectoryConfiguration;
+procedure TEntityCoreDBContext.CreateDirectoryConfiguration;
 begin
   if not TDirectory.Exists('configuration') then
   begin
@@ -197,13 +200,13 @@ begin
   end;
 end;
 
-procedure TEntityCoreDBContext<T>.CreateFileConfiguration;
+procedure TEntityCoreDBContext.CreateFileConfiguration;
 begin
 
   if not TFile.Exists(TEntityCoreConstant.cEntityCfg) then
   begin
     try
-      TFile.WriteAllText(TEntityCoreConstant.cEntityCfg, Connection.GetDefaultConfiguration);
+      TFile.WriteAllText(TEntityCoreConstant.cEntityCfg, TEntity.Connection.GetDefaultConfiguration);
     except
       on E: Exception do
       begin
@@ -230,79 +233,69 @@ begin
   end;
 end;
 
-procedure TEntityCoreDBContext<T>.CreateTables(const AClass: TClass);
+procedure TEntityCoreDBContext.CreateTables(const AClass: TClass);
 begin
   var LFields := TEntityCoreMapper.GetFields(AClass);
 
-  try
-    for var LField in LFields do
-    begin
-      var LFieldClassName := LField.FieldType.Name;
+  for var LField in LFields do
+  begin
+    var LFieldClassName := LField.FieldType.Name;
 
-      if not LFieldClassName.Contains('EntityCoreDBSet') then
+    if not LFieldClassName.Contains('EntityCoreDBSet') then
+    begin
+      Continue;
+    end;
+
+    var LClass := TEntityCoreModelClass(FindClass(LFieldClassName
+                                                             .Substring(LFieldClassName.LastIndexOf('.') + 1)
+                                                             .Replace('IEntityCoreDBSet<', '')
+                                                             .Replace('>', '')
+                                                )
+                                       );
+
+    try
+      TEntity.Connection.StartTransaction;
+      TEntityCoreFactory.CreateTable(LClass);
+      InsertRecordsDefault(LClass);
+      TEntity.Connection.Commit;
+    except
+      on E: EHorseException do
       begin
-        Continue;
+        TEntity.Connection.Rollback;
+        raise;
       end;
 
-      var LClass := TEntityCoreModelClass(FindClass(LFieldClassName
-                                                   .Substring(LFieldClassName.LastIndexOf('.') + 1)
-                                                   .Replace('IEntityCoreDBSet<', '')
-                                                   .Replace('>', '')));
-
-      try
-        TEntityCoreFactory.CreateTable(LClass);
-      except
-        on E: EHorseException do
-        begin
-          raise;
-        end;
-
-        on E: Exception do
-        begin
-          raise EHorseException
-                             .New
-                             .Title('Ocorreu algo!')
-                             .Status(THTTPStatus.BadRequest)
-                             .Error('Erro ao tentar verificar tabela ' + LClass.ClassName)
-                             .&Type(TMessageType.Error)
-                             .Detail(E.Message)
-                             .&Unit(UnitName)
-                             .Code(009)
-                             .Hint('método CreateTable');
-        end;
+      on E: Exception do
+      begin
+        TEntity.Connection.Rollback;
+        raise EHorseException
+                           .New
+                           .Title('Ocorreu algo!')
+                           .Status(THTTPStatus.BadRequest)
+                           .Error('Erro ao tentar verificar tabela ' + LClass.ClassName)
+                           .&Type(TMessageType.Error)
+                           .Detail(E.Message)
+                           .&Unit(UnitName)
+                           .Code(009)
+                           .Hint('método CreateTable');
       end;
     end;
-  finally
-    Connection.Close;
   end;
 end;
 
-destructor TEntityCoreDBContext<T>.Destroy;
+destructor TEntityCoreDBContext.Destroy;
 begin
   FSaveChangesList.Free;
   inherited;
 end;
 
-function TEntityCoreDBContext<T>.GetConnection: IEntityCoreConnection;
-begin
-  if FConnection = nil then
-  begin
-    FConnection := TEntityCoreMapper
-                              .GetMethod<T>('Create')
-                              .Invoke(T, [])
-                              .AsType<IEntityCoreConnection>;
-  end;
-
-  Result := FConnection;
-end;
-
-constructor TEntityCoreDBContext<T>.Create;
+constructor TEntityCoreDBContext.Create;
 begin
   inherited;
   DBContext := Self;
   CreateDirectoryConfiguration;
   CreateFileConfiguration;
-  Setconfiguration;
+  SetConfiguration;
   CreateDatabase;
   CreateTables(Self.ClassParent);
   CreateTables(Self.ClassType);
@@ -311,9 +304,9 @@ end;
 
 { TEntityCoreDBContext }
 
-procedure TEntityCoreDBContext<T>.SaveChanges;
+procedure TEntityCoreDBContext.SaveChanges;
 begin
-  Connection.BeginTransaction;
+  TEntity.Connection.StartTransaction;
   try
     for var LModel in FSaveChangesList do
     begin
@@ -323,12 +316,12 @@ begin
             var
               LIdKey: Int64;
 
-            Connection.InsertRecord(LModel, LIdKey);
+            TEntity.Connection.InsertRecord(LModel, LIdKey);
             LModel.ProcedureIdKey(LIdKey);
           end;
         TEntityCoreModelStatus.Updated:
           begin
-            Connection.UpdateRecord(LModel);
+            TEntity.Connection.UpdateRecord(LModel);
           end;
         TEntityCoreModelStatus.Deleted:
           ;
@@ -336,16 +329,16 @@ begin
 
       FSaveChangesList.Remove(LModel);
     end;
-    Connection.CommitTransaction;
+    TEntity.Connection.Commit;
   except
     on E: EHorseException do
     begin
-      Connection.RollbackTransaction;
+      TEntity.Connection.Rollback;
       raise;
     end;
     on E: Exception do
     begin
-      Connection.RollBackTransaction;
+      TEntity.Connection.RollBack;
       raise EHorseException
                          .New
                          .Title('Não inseriu!')
@@ -435,7 +428,7 @@ begin
   FSaveChangesList.Add(AObject.Clone);
 end;
 
-function TEntityCoreDBContext<T>.GetDBSetByModel(const AClass: TEntityCoreModelClass): TValue;
+function TEntityCoreDBContext.GetDBSetByModel(const AClass: TEntityCoreModelClass): TValue;
 begin
   Result := nil;
 
@@ -449,6 +442,37 @@ begin
     if AClass.ClassName.Contains(LField.Name.Remove(0, 1)) then
       Exit(LField
              .GetValue(Self));
+  end;
+end;
+
+procedure TEntityCoreDBContext.InsertRecordsDefault(const AClass: TEntityCoreModelClass);
+begin
+  var LValueList := TEntityCoreMapper
+                             .GetMethod(AClass, 'GetValueInsertedDefault')
+                             .Invoke(AClass, [])
+                             .AsType<TArray<TArray<Variant>>>;
+
+  var LScriptInsert := TEntityCoreFactory.RecordInsert(AClass);
+
+  try
+    for var LValue in LValueList do
+    begin
+      TEntity.Connection.ExecSQL(LScriptInsert, LValue);
+    end;
+  except
+    on E: Exception do
+    begin
+      raise EHorseException
+                       .New
+                       .Title('Ah não!')
+                       .Status(THTTPStatus.BadRequest)
+                       .Error('Erro ao tentar inserir os registros padrões da tabela ' + TEntityCoreMapper.GetTableName(AClass))
+                       .&Type(TMessageType.Error)
+                       .Detail(E.Message)
+                       .&Unit(UnitName)
+                       .Code(073)
+                       .Hint('método InsertRecordsDefault');
+    end;
   end;
 end;
 

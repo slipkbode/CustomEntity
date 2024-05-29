@@ -2,8 +2,13 @@ unit Custom.Entity.Core.DAO;
 
 interface
 
-uses Custom.Entity.Core.Model, System.Generics.Collections, Custom.Entity.Core.Types, Data.DB, Custom.Entity.Core.DBContext,
-  System.Rtti, Custom.Entity.Core.Enum;
+uses Custom.Entity.Core.Model,
+     System.Generics.Collections,
+     Custom.Entity.Core.Types,
+     Data.DB,
+     Custom.Entity.Core.DBContext,
+     System.Rtti,
+     Custom.Entity.Core.Enum;
 
 type
   IEntityCoreDAO = interface
@@ -44,7 +49,11 @@ type
 
 implementation
 
-uses Custom.Entity.Core.Linq, Custom.Entity.Core.Mapper, System.SysUtils, Custom.Entity.Core.Constant,
+uses Custom.Entity.Core.Linq,
+     Custom.Entity.Core.Mapper,
+     System.SysUtils,
+     Custom.Entity.Core.Constant,
+     Custom.Entity.Core,
      Horse;
 
 { TEntityCoreDAO<T, I> }
@@ -140,7 +149,7 @@ end;
 
 function TEntityCoreDAO<T>.GetSequencePrimaryKey(const AField: TRttiProperty): Int64;
 begin
-  Result := DBContext
+  Result := TEntity
                  .Connection
                  .ExecSQLScalar(Format(TEntityCoreConstant.cSelectMax,
                                        [AField.Name,

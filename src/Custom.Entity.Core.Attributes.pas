@@ -55,6 +55,7 @@ type
   EndpointTag            = class(TEntityCoreAttibute);
   EndpointDescription    = class(TEntityCoreAttibute);
   FormatValue            = class(TEntityCoreAttibute);
+  UniqueKey              = class(TEntityCoreAttibute);
   PrimaryKey             = class(TCustomAttribute);
   AutoIncremental        = class(TCustomAttribute);
   IsBoolean              = class(TCustomAttribute);
