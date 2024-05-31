@@ -11,12 +11,14 @@ type
   public
     function IsPrimaryKey: Boolean;
     function IsUniqueKey: Boolean;
+    function IsForeingKey: Boolean;
     function IsNotNull: Boolean;
     function IsAutoIncrement: Boolean;
     function IsIdentity: Boolean;
     function IsNull(const AObject: TObject): Boolean;
     function IsEnum: Boolean;
     function IsReadOnly: Boolean;
+    function IsClass: Boolean;
     function IsIgnore: Boolean;
     function IsNullable: Boolean;
     function HasForeignKey: Boolean;
@@ -60,9 +62,19 @@ begin
   Result := HasAttribute<AutoIncremental>;
 end;
 
+function THelperTRttiProperty.IsClass: Boolean;
+begin
+  Result := Self.PropertyType.TypeKind = TTypeKind.tkClass;
+end;
+
 function THelperTRttiProperty.IsEnum: Boolean;
 begin
   Result := HasAttribute<Custom.Entity.Core.Attributes.IsEnum> or (Self.PropertyType.Handle.Kind = tkEnumeration);
+end;
+
+function THelperTRttiProperty.IsForeingKey: Boolean;
+begin
+  Result := HasAttribute<ForeignKey>;
 end;
 
 function THelperTRttiProperty.IsIdentity: Boolean;
@@ -107,7 +119,7 @@ end;
 
 function THelperTRttiProperty.IsReadOnly: Boolean;
 begin
-  Result := HasAttribute<ReadOnly> or Self.IsReadOnly;
+  Result := HasAttribute<ReadOnly> or not Self.IsWritable;
 end;
 
 function THelperTRttiProperty.IsUniqueKey: Boolean;

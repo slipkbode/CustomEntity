@@ -41,10 +41,11 @@ type
     class function GetConnection: IEntityCoreConnection; static;
     class function GetPrimaryKeys(const AClass: TEntityCoreModelClass): String;
   public
-    class function CreateTable(const AClass: TEntityCoreModelClass): Boolean;
     class procedure CreateDatabase(const ADatabaseName: String);
     class procedure CreateUniqueKey(const AClass: TEntityCoreModelClass);
+    class procedure CreateForeingKey(const AClass: TEntityCoreModelClass);
 
+    class function CreateTable(const AClass: TEntityCoreModelClass): Boolean;
     class function RecordInsert(const AModel: TEntityCoreModel): TRecordScript; overload;
     class function RecordInsert(const AModel: TEntityCoreModelClass): String; overload;
     class function RecordUpdate(const AModel: TEntityCoreModel): TRecordScript;
@@ -76,6 +77,52 @@ begin
   end;
 end;
 
+class procedure TEntityCoreFactory.CreateForeingKey(const AClass: TEntityCoreModelClass);
+begin
+  var LForeingKeyList := TEntityCoreMapper.GetForeingKeys(AClass);
+  var LTableName     := TEntityCoreMapper.GetTableName(AClass);
+  var LScript        := '';
+
+  for var LForeingKey in LForeingKeyList do
+  begin
+    var LFields := Connection.ForeingKeyExists(LTableName, LForeingKey.Key);
+
+    if not LFields.Trim.IsEmpty and not LFields.Equals(LForeingKey.Value.Fields) then
+    begin
+      if not Connection.IsMySQL then
+      begin
+        LScript := Format(TEntityCoreConstant.cDropUniqueKey,
+                          [LTableName,
+                           LForeingKey.Key]);
+      end
+      else
+      begin
+        LScript := Format(TEntityCoreConstant.cDropUniqueKeyMySQL,
+                          [LTableName,
+                           LForeingKey.Key]);
+      end;
+    end;
+
+    if LFields.Trim.IsEmpty or LScript.Contains('drop') then
+    begin
+      LScript := LScript +
+                 #13 +
+                 Format(TEntityCoreConstant.cCreateForeignKey,
+                        [LTableName,
+                         LTableName,
+                         LForeingKey.Key,
+                         LForeingKey.Value.Fields,
+                         LForeingKey.Key,
+                         LForeingKey.Value.FieldsReference]);
+    end;
+
+    if not LScript.Trim.IsEmpty then
+    begin
+      Connection.ExecSQL(LScript);
+    end;
+  end;
+end;
+
 class function TEntityCoreFactory.CreateTable(const AClass: TEntityCoreModelClass): Boolean;
 begin
   Result := False;
@@ -94,6 +141,11 @@ begin
 
       for var LProperty in LProperties do
       begin
+        if LProperty.IsClass or LProperty.IsReadOnly then
+        begin
+          Continue;
+        end;
+
         if not Connection.FieldExists(LTableName, LProperty.Name) then
         begin
           Connection.ExecSQL(GetScriptField(LTableName, LProperty));
@@ -102,6 +154,7 @@ begin
     end;
 
     CreateUniqueKey(AClass);
+    CreateForeingKey(AClass);
   except
     Connection.Close;
     raise;
@@ -175,6 +228,11 @@ begin
 
   for var LProperty in LProperties do
   begin
+    if LProperty.IsReadOnly or LProperty.IsClass then
+    begin
+      Continue;
+    end;
+
     Result := Concat(Result,
                      ',',
                      LProperty.Name,

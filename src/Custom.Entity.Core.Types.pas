@@ -80,6 +80,12 @@ type
   TArrayProperties = TArray<TRttiProperty>;
   TArrayValue      = TArray<TValue>;
 
+  TForeingKey = packed record
+  public
+    Fields         : String;
+    FieldsReference: String;
+  end;
+
 implementation
 
 uses

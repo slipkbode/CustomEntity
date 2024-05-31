@@ -49,6 +49,20 @@ type
     cExpressionAs               = '%s as %s';
     cCreateField                = 'alter table %s add %s %s %s';
     cEntityCfg                  = 'configuration\entity.cfg';
+    cForeingKeyExistsSQLServer  = 'select string_agg(col_name(a.parent_object_id , a.parent_column_id), '','') as fields ' +
+                                  'from sys.foreign_key_columns a ' +
+                                  'where object_name(a.referenced_object_id) = :tablereference ' +
+                                  'and object_name(a.parent_object_id) = :tablename ';
+    cForeingKeyExistsFirebird   = 'SELECT LIST(detail_index_segments.rdb$field_name, '','') AS field_name ' +
+                                  'FROM rdb$relation_constraints detail_relation_constraints ' +
+                                  'JOIN rdb$index_segments detail_index_segments ON detail_relation_constraints.rdb$index_name = detail_index_segments.rdb$index_name ' +
+                                  'JOIN rdb$ref_constraints ON detail_relation_constraints.rdb$constraint_name = rdb$ref_constraints.rdb$constraint_name ' +
+                                  'JOIN rdb$relation_constraints master_relation_constraints ON rdb$ref_constraints.rdb$const_name_uq = master_relation_constraints.rdb$constraint_name ' +
+                                  'JOIN rdb$index_segments master_index_segments ON master_relation_constraints.rdb$index_name = master_index_segments.rdb$index_name ' +
+                                  'WHERE detail_relation_constraints.rdb$constraint_type = ''FOREIGN KEY'' ' +
+                                  'AND detail_relation_constraints.rdb$relation_name = :tablename ' +
+                                  'AND master_relation_constraints.rdb$relation_name = :tablereference ';
+
     cHtml                       = '''
                                  <!DOCTYPE html>
                                    <html>

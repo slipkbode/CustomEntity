@@ -3,7 +3,10 @@ unit Custom.Entity.Core.Mapper;
 interface
 
 uses
-  System.Rtti, System.Generics.Collections, System.TypInfo, System.SysUtils,
+  System.Rtti,
+  System.Generics.Collections,
+  System.TypInfo,
+  System.SysUtils,
   Custom.Entity.Core.Types;
 
 type
@@ -35,11 +38,13 @@ type
     class function GetPrimaryKeys(const AClass: TClass): TArrayProperties;
     class function GetUniqueKeys(const AClass: TClass): TDictionary<String, String>;
     class function GetTableName(const AClass: TClass): String;
+    class function GetForeingKeys(const AClass: TClass): TDictionary<String, TForeingKey>;
   end;
 
 implementation
 
-uses Custom.Entity.Core.Attributes, Custom.Entity.Core.Server.Helper;
+uses Custom.Entity.Core.Attributes,
+     Custom.Entity.Core.Server.Helper;
 
 { TEntityCoreMapper }
 
@@ -90,6 +95,37 @@ end;
 class function TEntityCoreMapper.GetFields(const AClass: TClass): TArray<TRttiField>;
 begin
   Result := GetType(AClass).GetDeclaredFields;
+end;
+
+class function TEntityCoreMapper.GetForeingKeys(const AClass: TClass): TDictionary<String, TForeingKey>;
+begin
+  Result := TDictionary<String, TForeingKey>.Create;
+
+  var LPropertyList := GetProperties(AClass);
+
+  for var LProperty in LPropertyList do
+  begin
+    if (LProperty.IsForeingKey) then
+    begin
+      var LValue     : TForeingKey;
+      var LForeingKeyClass := LProperty.GetAttribute<ForeignKey>.Value.AsClass;
+      var LTableReference := GetTableName(LForeingKeyClass);
+
+      Result.TryGetValue(LTableReference, LValue);
+
+      if LValue.Fields.Trim.IsEmpty then
+      begin
+        LValue.Fields := LProperty.Name;
+      end
+      else
+      begin
+        LValue.Fields := LValue.Fields + ',' + LProperty.Name;
+      end;
+
+      LValue.FieldsReference := GetPrimaryKeys(AClass).ToString;
+      Result.AddOrSetValue(LTableReference, LValue);
+    end;
+  end;
 end;
 
 class function TEntityCoreMapper.GetMethod(const AClass: TClass; const AMethodName: String): TRttiMethod;
